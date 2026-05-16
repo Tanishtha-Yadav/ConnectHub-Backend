@@ -1,0 +1,34 @@
+package com.connecthub.auth.dto.response;
+
+public class AuthResponse {
+
+    private String message;
+    private UserResponse user;
+
+    // Constructors
+    public AuthResponse() {
+    }
+
+    public AuthResponse(String message, UserResponse user) {
+        this.message = message;
+        this.user = user;
+    }
+
+    // Getters and Setters
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public UserResponse getUser() {
+        return user;
+    }
+
+    public void setUser(UserResponse user) {
+        this.user = user;
+    }
+}
+

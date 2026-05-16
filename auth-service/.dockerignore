@@ -1,0 +1,6 @@
+# target/ intentionally NOT ignored — pre-built JAR must be copied in
+# (Maven Central is unreachable inside Docker on this host)
+.mvn/
+*.iml
+.idea/
+.git/

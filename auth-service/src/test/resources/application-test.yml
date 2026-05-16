@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: auth-service-test
+  
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: false
+    show-sql: false
+  
+  h2:
+    console:
+      enabled: true
+
+jwt:
+  secret: connecthubsecretkey123456789abcdefghijklmnopqrstuvwxyz
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+logging:
+  level:
+    root: WARN
+    com.connecthub.auth: DEBUG
