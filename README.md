@@ -1,38 +1,30 @@
-# ConnectHub - Auth Service
+# ConnectHub - Message Service
 
-The `auth-service` is a core microservice of the ConnectHub application responsible for handling user authentication, authorization, registration, and managing user profiles. It secures the platform using JWT (JSON Web Tokens) and integrates with the API Gateway.
+The `message-service` is a core microservice of the ConnectHub application responsible for handling real-time chat, message storage, and delivery tracking. It works closely with the WebSocket Handler and Room Service to deliver messages seamlessly to users.
 
 ## 🚀 Features
-- **User Registration & Login:** Standard email/password authentication.
-- **OAuth2 Integration:** Support for Google Sign-In.
-- **JWT Security:** Stateless, token-based security for all internal microservice communication.
-- **Role-Based Access Control:** Differentiates between standard `USER`, `ADMIN`, and `OWNER` roles.
-- **Profile Management:** Endpoints for users to update their profile and status.
-- **Audit Logging:** Tracks important security events (logins, password changes).
+- **Send & Edit Messages:** Users can send new messages and edit existing ones within a chat room.
+- **Delivery Status Tracking:** Tracks the lifecycle of a message (`SENT`, `DELIVERED`, `READ`).
+- **Rich Message Types:** Supports text, images, and system notifications via `MessageType`.
+- **JWT Security Integration:** Ensures that only authorized participants in a room can send or view messages.
+- **Admin Management:** Endpoints for platform administrators to monitor or moderate messages.
 
 ## 🛠️ Tech Stack
 - **Java 17** & **Spring Boot 3.x**
-- **Spring Security** (with OAuth2 and JWT)
+- **Spring Security** (JWT validation)
 - **Spring Data JPA** & **Hibernate**
 - **MySQL Database**
 - **Docker**
 
 ## 📂 Project Structure
-- `src/main/java/.../controller`: REST API endpoints (Auth, OAuth2, Admin).
-- `src/main/java/.../security`: JWT generation, parsing, and filters.
-- `src/main/java/.../service`: Core business logic.
-- `src/test/`: Unit and Integration tests.
+- `src/main/java/.../controller`: REST API endpoints (`MessageResource`, `AdminController`).
+- `src/main/java/.../model`: Core entities (`Message`, `DeliveryStatus`, `MessageType`).
+- `src/main/java/.../service`: Business logic for message validation and routing.
+- `src/main/java/.../dto`: Data Transfer Objects for clean API requests/responses.
+- `src/test/`: Unit tests and mock testing for message service logic.
 
 ## 🔧 Environment Variables
-To run this service, you must provide the following environment variables (usually via a `.env` file in the root backend directory injected through Docker Compose):
-
-```env
-# Database
-MYSQL_ROOT_PASSWORD=your_db_password
-
-# JWT
-JWT_SECRET=your_jwt_secret_key
-```
+This service retrieves its configuration via the centralized `ConnectHub-Backend/.env` file. It requires standard database and JWT keys.
 
 ## 🐳 Deployment & Running Locally
 This service is designed to be run alongside the rest of the ConnectHub microservices using Docker Compose.
@@ -40,15 +32,10 @@ This service is designed to be run alongside the rest of the ConnectHub microser
 **To run via Docker:**
 ```bash
 # Navigate to the root ConnectHub-Backend folder
-docker-compose up -d auth-service
+docker-compose up -d message-service
 ```
 
 **To run locally for development (Maven):**
 ```bash
 ./mvnw spring-boot:run
 ```
-
-## 🧪 Testing the API
-We have provided tools to make testing easy:
-1. **Postman:** Import the `src/test/resources/postman-collection.json` file into Postman.
-2. **Terminal:** Run the `src/test/resources/curl-test-commands.sh` script to test endpoints directly from your command line.
