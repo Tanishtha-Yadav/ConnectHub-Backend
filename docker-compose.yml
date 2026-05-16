@@ -1,0 +1,385 @@
+services:
+  # ============================================================
+  # MySQL Database
+  # ============================================================
+  mysql:
+    image: mysql:8.0
+    container_name: connecthub-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: 'UTC'
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # Redis — used for presence tracking and WebSocket pub/sub
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: connecthub-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 5s
+      retries: 5
+      interval: 5s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # RabbitMQ — used for WebSocket STOMP routing
+  # ============================================================
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: connecthub-rabbitmq
+    hostname: connecthub-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "61613:61613"
+    entrypoint: >
+      sh -c "echo '[rabbitmq_management,rabbitmq_stomp].' > /etc/rabbitmq/enabled_plugins &&
+             docker-entrypoint.sh rabbitmq-server"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      timeout: 15s
+      retries: 10
+      interval: 10s
+      start_period: 60s
+    networks:
+      - connecthub-network
+
+
+  # ============================================================
+  # Eureka Server (Service Discovery)
+  # ============================================================
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: connecthub-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8761/actuator/health"]
+      timeout: 10s
+      retries: 5
+      interval: 10s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # Auth Service
+  # ============================================================
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: connecthub-auth
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/connecthub_auth?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: auth-service
+      JWT_SECRET: ${JWT_SECRET}
+      # Inter-service URLs for analytics aggregation
+      ROOM_SERVICE_URL: http://room-service:8082
+      MESSAGE_SERVICE_URL: http://message-service:8083
+      MEDIA_SERVICE_URL: http://media-service:8087
+      WEBSOCKET_HANDLER_URL: http://websocket-handler:8085
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/actuator/health"]
+      timeout: 10s
+      retries: 5
+      interval: 10s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # Room Service
+  # ============================================================
+  room-service:
+    build:
+      context: ./room-service
+      dockerfile: Dockerfile
+    container_name: connecthub-room
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/connecthub_rooms?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: room-service
+      JWT_SECRET: ${JWT_SECRET}
+      MESSAGE_SERVICE_URL: http://message-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8086
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/api/rooms/health"]
+      timeout: 10s
+      retries: 10
+      interval: 15s
+      start_period: 120s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # Message Service
+  # ============================================================
+  message-service:
+    build:
+      context: ./message-service
+      dockerfile: Dockerfile
+    container_name: connecthub-message
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/connecthub_messages?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: message-service
+      JWT_SECRET: ${JWT_SECRET}
+      ROOM_SERVICE_URL: http://room-service:8082
+      AUTH_SERVICE_URL: http://auth-service:8081
+      NOTIFICATION_SERVICE_URL: http://notification-service:8086
+      PRESENCE_SERVICE_URL: http://presence-service:8088
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      room-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/api/messages/health"]
+      timeout: 10s
+      retries: 10
+      interval: 15s
+      start_period: 120s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # WebSocket Handler
+  # ============================================================
+  websocket-handler:
+    build:
+      context: ./websocket-handler
+      dockerfile: Dockerfile
+    container_name: connecthub-websocket
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      STOMP_RELAY_HOST: rabbitmq
+      STOMP_RELAY_PORT: 61613
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: websocket-handler
+      JWT_SECRET: ${JWT_SECRET}
+      # Use Docker service hostname + port so inter-service calls work
+      ROOM_SERVICE_URL: http://room-service:8082
+      AUTH_SERVICE_URL: http://auth-service:8081
+      MESSAGE_SERVICE_URL: http://message-service:8083
+      PRESENCE_SERVICE_URL: http://presence-service:8088
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      room-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9005/actuator/health"]
+      timeout: 10s
+      retries: 10
+      interval: 15s
+      start_period: 120s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # API Gateway
+  # ============================================================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: connecthub-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: api-gateway
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
+      timeout: 10s
+      retries: 10
+      interval: 15s
+      start_period: 60s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # Presence Service
+  # ============================================================
+  presence-service:
+    build:
+      context: ./presence-service
+      dockerfile: Dockerfile
+    container_name: connecthub-presence
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: presence-service
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8088/api/presence/health"]
+      timeout: 10s
+      retries: 10
+      interval: 15s
+      start_period: 60s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # Notification Service
+  # ============================================================
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: connecthub-notification
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/connecthub_notifications?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: notification-service
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_MAIL_HOST: ${SMTP_HOST}
+      SPRING_MAIL_PORT: 587
+      SPRING_MAIL_USERNAME: ${SMTP_USERNAME}
+      SPRING_MAIL_PASSWORD: ${SMTP_PASSWORD}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: true
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: true
+      PRESENCE_SERVICE_URL: http://presence-service:8088
+      AUTH_SERVICE_URL: http://auth-service:8081
+      ROOM_SERVICE_URL: http://room-service:8082
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8086/api/notifications/health"]
+      timeout: 10s
+      retries: 10
+      interval: 15s
+      start_period: 60s
+    networks:
+      - connecthub-network
+
+  # ============================================================
+  # Media/File Service (AWS S3)
+  # ============================================================
+  media-service:
+    build:
+      context: ./media-service
+      dockerfile: Dockerfile
+    container_name: connecthub-media
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: media-service
+      JWT_SECRET: ${JWT_SECRET}
+      # AWS S3 — Spring relaxed binding maps AWS_S3_ACCESS_KEY -> aws.s3.access-key
+      AWS_S3_ACCESS_KEY: ${AWS_S3_ACCESS_KEY}
+      AWS_S3_SECRET_KEY: ${AWS_S3_SECRET_KEY}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS_S3_REGION: ap-south-1
+      MEDIA_BASE_URL: http://localhost:8080
+      MEDIA_UPLOAD_DIR: /uploads
+    volumes:
+      - media_uploads:/uploads
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8087/actuator/health"]
+      timeout: 10s
+      retries: 5
+      interval: 10s
+    networks:
+      - connecthub-network
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  media_uploads:
+    driver: local
+
+networks:
+  connecthub-network:
+    driver: bridge
