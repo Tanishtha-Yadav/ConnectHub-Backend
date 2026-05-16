@@ -1,1 +1,20 @@
 /.metadata/
+
+# ============================================================
+# SECRET PROPERTY FILES — never commit these to Git
+# ============================================================
+**/application-secret.properties
+.env
+
+# Maven build output
+**/target/
+
+# IDE files
+**/.idea/
+**/*.iml
+**/.classpath
+**/.project
+**/.settings/
+
+# Logs
+*.log
