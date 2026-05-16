@@ -1,27 +1,28 @@
-# ConnectHub - Message Service
+# ConnectHub - Room Service
 
-The `message-service` is a core microservice of the ConnectHub application responsible for handling real-time chat, message storage, and delivery tracking. It works closely with the WebSocket Handler and Room Service to deliver messages seamlessly to users.
+The `room-service` is a core microservice of the ConnectHub application responsible for managing chat spaces, channels, and direct message groups. It handles the creation of rooms, membership management, and enforces room-level access control.
 
 ## 🚀 Features
-- **Send & Edit Messages:** Users can send new messages and edit existing ones within a chat room.
-- **Delivery Status Tracking:** Tracks the lifecycle of a message (`SENT`, `DELIVERED`, `READ`).
-- **Rich Message Types:** Supports text, images, and system notifications via `MessageType`.
-- **JWT Security Integration:** Ensures that only authorized participants in a room can send or view messages.
-- **Admin Management:** Endpoints for platform administrators to monitor or moderate messages.
+- **Room Management:** Endpoints to create, update, and fetch chat rooms.
+- **Room Types:** Categorization of spaces (e.g., direct messages, private groups, public channels).
+- **Membership & Roles:** Manage users within a room, including assigning specific `MemberRole`s.
+- **Access Control:** Ensures users can only access or modify rooms they are authorized to be in.
+- **Admin Tools:** Specialized endpoints for platform moderators to oversee room activities.
 
 ## 🛠️ Tech Stack
 - **Java 17** & **Spring Boot 3.x**
 - **Spring Security** (JWT validation)
 - **Spring Data JPA** & **Hibernate**
 - **MySQL Database**
+- **RestTemplate** (For internal microservice communication)
 - **Docker**
 
 ## 📂 Project Structure
-- `src/main/java/.../controller`: REST API endpoints (`MessageResource`, `AdminController`).
-- `src/main/java/.../model`: Core entities (`Message`, `DeliveryStatus`, `MessageType`).
-- `src/main/java/.../service`: Business logic for message validation and routing.
-- `src/main/java/.../dto`: Data Transfer Objects for clean API requests/responses.
-- `src/test/`: Unit tests and mock testing for message service logic.
+- `src/main/java/.../controller`: REST API endpoints (`RoomController`, `AdminController`).
+- `src/main/java/.../model`: Core entities (`Room`, `RoomMember`, `RoomType`, `MemberRole`).
+- `src/main/java/.../service`: Business logic for room creation and membership validation.
+- `src/main/java/.../dto`: Data Transfer Objects (`CreateRoomRequest`, `AddMemberRequest`).
+- `src/test/`: Unit tests and mock testing for room management logic.
 
 ## 🔧 Environment Variables
 This service retrieves its configuration via the centralized `ConnectHub-Backend/.env` file. It requires standard database and JWT keys.
@@ -32,7 +33,7 @@ This service is designed to be run alongside the rest of the ConnectHub microser
 **To run via Docker:**
 ```bash
 # Navigate to the root ConnectHub-Backend folder
-docker-compose up -d message-service
+docker-compose up -d room-service
 ```
 
 **To run locally for development (Maven):**
