@@ -1,41 +1,171 @@
 spring:
   application:
     name: api-gateway
+  
+  # Cloud Gateway Configuration
   cloud:
     gateway:
       routes:
-        - id: auth-service
+        # ============================================================
+        # Auth Service Routes — Public (no JWT required)
+        # ============================================================
+        - id: auth-service-public
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/register,/api/auth/login,/api/auth/search,/api/auth/google,/api/auth/oauth2/**,/api/auth/refresh
+          filters:
+            # COOP allows the Google Sign-In popup to postMessage back to this window.
+            # DO NOT add Cross-Origin-Embedder-Policy here — it blocks Google's OAuth resources.
+            - AddResponseHeader=Cross-Origin-Opener-Policy,same-origin-allow-popups
+        
+        # Auth Service Routes — Protected (JWT required)
+        - id: auth-service-protected
           uri: lb://auth-service
           predicates:
             - Path=/api/auth/**
           filters:
-            - RewritePath=/api/auth/(?<segment>.*), /$\{segment}
-        
-        - id: user-service
-          uri: lb://user-service
+            - AuthenticationFilter
+            - AddResponseHeader=X-Content-Type-Options,nosniff
+
+        # ============================================================
+        # Room Service Routes — all protected
+        # ============================================================
+        - id: room-service
+          uri: lb://room-service
           predicates:
-            - Path=/api/users/**
+            - Path=/api/rooms/**
           filters:
-            - RewritePath=/api/users/(?<segment>.*), /$\{segment}
-        
-        - id: connection-service
-          uri: lb://connection-service
+            - AuthenticationFilter
+
+        # ============================================================
+        # Message Service Routes — all protected
+        # ============================================================
+        - id: message-service
+          uri: lb://message-service
           predicates:
-            - Path=/api/connections/**
+            - Path=/api/messages/**
           filters:
-            - RewritePath=/api/connections/(?<segment>.*), /$\{segment}
-      
+            - AuthenticationFilter
+
+        # ============================================================
+        # WebSocket Handler — SockJS/STOMP handshake (public)
+        # WHY public? The initial HTTP handshake must pass through
+        # without JWT. Auth happens at the STOMP CONNECT frame level.
+        # ============================================================
+        - id: websocket-handler-ws
+          uri: lb://websocket-handler
+          predicates:
+            - Path=/ws/**
+
+        - id: websocket-handler-api
+          uri: lb://websocket-handler
+          predicates:
+            - Path=/api/ws/**
+          filters:
+            - AuthenticationFilter
+
+        # ============================================================
+        # Presence Service Routes
+        # ============================================================
+        - id: presence-service
+          uri: lb://presence-service
+          predicates:
+            - Path=/api/presence/**
+          filters:
+            - AuthenticationFilter
+
+        # ============================================================
+        # Notification Service Routes
+        # ============================================================
+        - id: notification-service-public
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/health
+
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - AuthenticationFilter
+
+        # ============================================================
+        # Media/File Service Routes
+        # ============================================================
+        - id: media-service-public
+          uri: lb://media-service
+          predicates:
+            - Path=/api/media/health
+
+        - id: media-service
+          uri: lb://media-service
+          predicates:
+            - Path=/api/media/**
+          filters:
+            - AuthenticationFilter
+
+      # Service Discovery Configuration
       discovery:
         locator:
           enabled: true
           lower-case-service-id: true
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: Auth Service API
+        url: /auth-service/v3/api-docs
+      - name: Room Service API
+        url: /room-service/v3/api-docs
+      - name: Message Service API
+        url: /message-service/v3/api-docs
+      - name: Presence Service API
+        url: /presence-service/v3/api-docs
+      - name: Notification Service API
+        url: /notification-service/v3/api-docs
+      - name: Media Service API
+        url: /media-service/v3/api-docs
+
+
+
 server:
   port: 8080
+  compression:
+    enabled: true
+    min-response-size: 1024
 
+# Eureka Configuration
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+    instance-id: ${spring.application.name}:${server.port}
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: INFO
+    com.connecthub: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
