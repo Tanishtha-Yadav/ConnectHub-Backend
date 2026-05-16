@@ -1,0 +1,28 @@
+package com.connecthub.message.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+
+/**
+ * Jackson configuration for the Message Service.
+ *
+ * WHY: Spring Boot auto-configures Jackson but leaves WRITE_DATES_AS_TIMESTAMPS
+ * enabled by default. This causes LocalDateTime to serialize as a JSON array
+ * [2026, 4, 30, 12, 0, 0] instead of "2026-04-30T12:00:00", which the Angular
+ * frontend cannot parse with `new Date()`.
+ */
+@Configuration
+public class JacksonConfig {
+
+    @Bean
+    @Primary
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+}
