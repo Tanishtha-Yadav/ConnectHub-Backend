@@ -1,76 +1,54 @@
-# ConnectHub Backend - API Gateway
+# ConnectHub - Auth Service
 
-This branch README documents the API Gateway module only.
+The `auth-service` is a core microservice of the ConnectHub application responsible for handling user authentication, authorization, registration, and managing user profiles. It secures the platform using JWT (JSON Web Tokens) and integrates with the API Gateway.
 
-## Purpose
+## 🚀 Features
+- **User Registration & Login:** Standard email/password authentication.
+- **OAuth2 Integration:** Support for Google Sign-In.
+- **JWT Security:** Stateless, token-based security for all internal microservice communication.
+- **Role-Based Access Control:** Differentiates between standard `USER`, `ADMIN`, and `OWNER` roles.
+- **Profile Management:** Endpoints for users to update their profile and status.
+- **Audit Logging:** Tracks important security events (logins, password changes).
 
-The API Gateway is the single entry point for backend API traffic in ConnectHub.
-It routes incoming requests to downstream services using Eureka-based service discovery.
+## 🛠️ Tech Stack
+- **Java 17** & **Spring Boot 3.x**
+- **Spring Security** (with OAuth2 and JWT)
+- **Spring Data JPA** & **Hibernate**
+- **MySQL Database**
+- **Docker**
 
-## Key Responsibilities
+## 📂 Project Structure
+- `src/main/java/.../controller`: REST API endpoints (Auth, OAuth2, Admin).
+- `src/main/java/.../security`: JWT generation, parsing, and filters.
+- `src/main/java/.../service`: Core business logic.
+- `src/test/`: Unit and Integration tests.
 
-- Expose a single backend endpoint for clients
-- Route API paths to the correct microservice
-- Resolve service instances dynamically through Eureka
-- Apply development CORS policy at gateway level
+## 🔧 Environment Variables
+To run this service, you must provide the following environment variables (usually via a `.env` file in the root backend directory injected through Docker Compose):
 
-## Prerequisites
+```env
+# Database
+MYSQL_ROOT_PASSWORD=your_db_password
 
-- Java 17 or newer
-- Maven (or Maven Wrapper)
-- Running Eureka Server at http://localhost:8761
-- Registered downstream services:
-	- auth-service
-	- user-service
-	- connection-service
+# JWT
+JWT_SECRET=your_jwt_secret_key
+```
 
-## Run API Gateway
+## 🐳 Deployment & Running Locally
+This service is designed to be run alongside the rest of the ConnectHub microservices using Docker Compose.
 
-From the api-gateway folder:
+**To run via Docker:**
+```bash
+# Navigate to the root ConnectHub-Backend folder
+docker-compose up -d auth-service
+```
 
+**To run locally for development (Maven):**
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Windows:
-
-```bash
-mvnw.cmd spring-boot:run
-```
-
-Gateway URL: http://localhost:8080
-
-## Current Route Mapping
-
-- /api/auth/** -> auth-service
-- /api/users/** -> user-service
-- /api/connections/** -> connection-service
-
-Each route rewrites the prefix before forwarding to the target service.
-
-## Configuration Files
-
-- api-gateway/src/main/resources/application.properties
-- api-gateway/src/main/resources/application.yml
-
-Important defaults:
-
-- Active profile: local
-- Gateway port: 8080
-- Eureka default zone: http://localhost:8761/eureka/
-
-## Quick Verification
-
-1. Open Eureka dashboard: http://localhost:8761
-2. Verify services are listed as UP
-3. Call a gateway endpoint, for example: http://localhost:8080/api/auth/health
-
-## Module Documentation
-
-For full API Gateway implementation details, see:
-
-- api-gateway/README.md
-
-## License
-
-Internal Use Only - ConnectHub Platform
+## 🧪 Testing the API
+We have provided tools to make testing easy:
+1. **Postman:** Import the `src/test/resources/postman-collection.json` file into Postman.
+2. **Terminal:** Run the `src/test/resources/curl-test-commands.sh` script to test endpoints directly from your command line.
