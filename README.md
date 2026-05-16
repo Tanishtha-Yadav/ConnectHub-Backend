@@ -1,27 +1,22 @@
-# ConnectHub - WebSocket Handler
+# ConnectHub - Presence Service
 
-The `websocket-handler` is a critical infrastructure microservice in the ConnectHub application. It manages all real-time, persistent WebSocket connections with the frontend clients, enabling instant chat messaging, live presence updates, and real-time notifications.
+The `presence-service` is a highly optimized, lightweight microservice responsible for tracking and serving the real-time online/offline status of users. It works in tandem with the WebSocket handler to know exactly when a user connects or disconnects.
 
 ## 🚀 Features
-- **Real-Time Communication:** Handles bidirectional data flow between the frontend and the backend using WebSockets (STOMP).
-- **Redis Pub/Sub Integration:** Uses Redis Publisher/Subscriber mechanisms to broadcast messages across multiple instances of the WebSocket handler, ensuring a highly scalable chat architecture.
-- **WebSocket Security:** Intercepts connection requests (`WebSocketAuthInterceptor`) to validate JWT tokens before establishing the socket connection.
-- **Event Listening:** Listens to socket connect/disconnect events (`WebSocketEventListener`) to help the Presence Service track who is currently online.
-- **Message Routing:** Routes `ChatMessage` and `NotificationMessage` payloads to the appropriate subscribed clients.
+- **Real-Time Status Tracking:** Keeps track of exactly who is online across the entire platform.
+- **High Performance:** Utilizes Redis as a fast, in-memory data store to handle constant status updates without hitting a slow relational database.
+- **Status Broadcasting:** Allows other microservices (like the Message Service or Notification Service) to instantly check if a user is online before deciding to send an offline email or a live push notification.
 
 ## 🛠️ Tech Stack
 - **Java 17** & **Spring Boot 3.x**
-- **Spring WebSocket & STOMP**
-- **Spring Data Redis** (For Pub/Sub messaging)
-- **Spring Security** (JWT validation)
+- **Spring Data Redis** (For blazing-fast in-memory tracking)
 - **Docker**
 
 ## 📂 Project Structure
-- `src/main/java/.../config`: Configuration for WebSockets, Redis, and Security Interceptors.
-- `src/main/java/.../controller`: Endpoints for incoming WebSocket messages (`ChatController`).
-- `src/main/java/.../service`: Redis Pub/Sub logic (`RedisMessagePublisher`, `RedisMessageSubscriber`).
-- `src/main/java/.../listener`: Lifecycle hooks for socket connections.
-- `src/main/java/.../dto`: Payloads for chat and notifications.
+- `src/main/java/.../config`: Connects the service to the Redis cluster (`RedisConfig`).
+- `src/main/java/.../controller`: Endpoints for other services to query a user's presence (`PresenceController`).
+- `src/main/java/.../service`: Core logic for updating and retrieving online statuses (`PresenceService`).
+- `src/test/`: Unit testing for presence logic.
 
 ## 🔧 Environment Variables
 This service retrieves its configuration via the centralized `ConnectHub-Backend/.env` file. It requires standard JWT keys and Redis connection details.
@@ -32,7 +27,7 @@ This service is designed to be run alongside the rest of the ConnectHub microser
 **To run via Docker:**
 ```bash
 # Navigate to the root ConnectHub-Backend folder
-docker-compose up -d websocket-handler
+docker-compose up -d presence-service
 ```
 
 **To run locally for development (Maven):**
