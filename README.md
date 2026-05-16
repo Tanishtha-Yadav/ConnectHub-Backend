@@ -1,31 +1,30 @@
-# ConnectHub - Room Service
+# ConnectHub - WebSocket Handler
 
-The `room-service` is a core microservice of the ConnectHub application responsible for managing chat spaces, channels, and direct message groups. It handles the creation of rooms, membership management, and enforces room-level access control.
+The `websocket-handler` is a critical infrastructure microservice in the ConnectHub application. It manages all real-time, persistent WebSocket connections with the frontend clients, enabling instant chat messaging, live presence updates, and real-time notifications.
 
 ## 🚀 Features
-- **Room Management:** Endpoints to create, update, and fetch chat rooms.
-- **Room Types:** Categorization of spaces (e.g., direct messages, private groups, public channels).
-- **Membership & Roles:** Manage users within a room, including assigning specific `MemberRole`s.
-- **Access Control:** Ensures users can only access or modify rooms they are authorized to be in.
-- **Admin Tools:** Specialized endpoints for platform moderators to oversee room activities.
+- **Real-Time Communication:** Handles bidirectional data flow between the frontend and the backend using WebSockets (STOMP).
+- **Redis Pub/Sub Integration:** Uses Redis Publisher/Subscriber mechanisms to broadcast messages across multiple instances of the WebSocket handler, ensuring a highly scalable chat architecture.
+- **WebSocket Security:** Intercepts connection requests (`WebSocketAuthInterceptor`) to validate JWT tokens before establishing the socket connection.
+- **Event Listening:** Listens to socket connect/disconnect events (`WebSocketEventListener`) to help the Presence Service track who is currently online.
+- **Message Routing:** Routes `ChatMessage` and `NotificationMessage` payloads to the appropriate subscribed clients.
 
 ## 🛠️ Tech Stack
 - **Java 17** & **Spring Boot 3.x**
+- **Spring WebSocket & STOMP**
+- **Spring Data Redis** (For Pub/Sub messaging)
 - **Spring Security** (JWT validation)
-- **Spring Data JPA** & **Hibernate**
-- **MySQL Database**
-- **RestTemplate** (For internal microservice communication)
 - **Docker**
 
 ## 📂 Project Structure
-- `src/main/java/.../controller`: REST API endpoints (`RoomController`, `AdminController`).
-- `src/main/java/.../model`: Core entities (`Room`, `RoomMember`, `RoomType`, `MemberRole`).
-- `src/main/java/.../service`: Business logic for room creation and membership validation.
-- `src/main/java/.../dto`: Data Transfer Objects (`CreateRoomRequest`, `AddMemberRequest`).
-- `src/test/`: Unit tests and mock testing for room management logic.
+- `src/main/java/.../config`: Configuration for WebSockets, Redis, and Security Interceptors.
+- `src/main/java/.../controller`: Endpoints for incoming WebSocket messages (`ChatController`).
+- `src/main/java/.../service`: Redis Pub/Sub logic (`RedisMessagePublisher`, `RedisMessageSubscriber`).
+- `src/main/java/.../listener`: Lifecycle hooks for socket connections.
+- `src/main/java/.../dto`: Payloads for chat and notifications.
 
 ## 🔧 Environment Variables
-This service retrieves its configuration via the centralized `ConnectHub-Backend/.env` file. It requires standard database and JWT keys.
+This service retrieves its configuration via the centralized `ConnectHub-Backend/.env` file. It requires standard JWT keys and Redis connection details.
 
 ## 🐳 Deployment & Running Locally
 This service is designed to be run alongside the rest of the ConnectHub microservices using Docker Compose.
@@ -33,7 +32,7 @@ This service is designed to be run alongside the rest of the ConnectHub microser
 **To run via Docker:**
 ```bash
 # Navigate to the root ConnectHub-Backend folder
-docker-compose up -d room-service
+docker-compose up -d websocket-handler
 ```
 
 **To run locally for development (Maven):**
